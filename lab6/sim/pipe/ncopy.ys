@@ -1,0 +1,185 @@
+#/* $begin ncopy-ys */
+##################################################################
+# ncopy.ys - Copy a src block of len words to dst.
+# Return the number of positive words (>0) contained in src.
+#
+# Include your name and ID here.
+# 郭俊甫 521021910522
+# Describe how and why you modified the baseline code.
+# 首先进行循环展开，将源代码循环展开9次，减少循环时的条件判断和跳转损耗。在每次循环中，将用到同一个寄存器的mrmovq和rmmovq指令进行错位，减少load/use hazard
+# 在判断是否大于0时，将andq语句与跳转语句之间插入其他语句，使得跳转时条件码已经计算出，保证跳转的正确性，减少control hazard。更新循环变量时，直接在%rdx上进
+# 行减法，从而能够删去rrmovq到其他寄存器这一指令，减少指令数。进行变量更新时，使用iaddq代替irmovq+addq，减少指令数。
+# 然后优化不满9的倍数的部分。在这里采用将循环全部展开的方式。即一次一次复制判断，更新rdx中的length，当length为0时直接ret。在这里还优化了一个小细节，每次的mr
+# movq和rmmovq若连在一起会插入bublle，在这里选择进行错位，每次操作提前将下一次的mrmovq执行，这样rmmovq时无需等待mrmovq到访存阶段才能执行，便不用再插入bub
+# ble。第一次操作没法提前进行mrmovq，便将第二次mrmovq插入到两者之间，同样不用再插入bubble
+##################################################################
+# Do not modify this portion
+# Function prologue.
+# %rdi = src, %rsi = dst, %rdx = len
+ncopy:
+
+##################################################################
+# You can modify this portion
+	# Loop header
+
+    iaddq $-9, %rdx		# len > 8?
+    jl Remain			# if no, goto Loopp:
+
+    # read val from src...
+	# ...and store it to dst
+	# val <= 0?
+	# if so, goto Npos:
+    # count++
+
+Loop:
+	mrmovq (%rdi), %r8
+	mrmovq 8(%rdi), %r10
+    andq %r8, %r8
+    mrmovq 16(%rdi), %r11
+    rmmovq %r8, (%rsi)
+    jle l1
+    iaddq $1, %rax
+l1:
+    andq %r10, %r10
+    mrmovq 24(%rdi), %r12
+    rmmovq %r10, 8(%rsi)
+    jle l2
+    iaddq $1, %rax
+l2:
+    andq %r11, %r11
+    mrmovq 32(%rdi), %r13
+    rmmovq %r11, 16(%rsi)
+    jle l3
+    iaddq $1, %rax
+l3:
+    andq %r12, %r12
+    mrmovq 40(%rdi), %r14
+    rmmovq %r12, 24(%rsi)
+    jle l4
+    iaddq $1, %rax
+l4:
+    andq %r13, %r13
+    mrmovq 48(%rdi), %rbp
+    rmmovq %r13, 32(%rsi)
+    jle l5
+    iaddq $1, %rax
+l5:
+    andq %r14, %r14
+    mrmovq 56(%rdi), %rbx
+    rmmovq %r14, 40(%rsi)
+    jle l6
+    iaddq $1, %rax
+l6:
+    andq %rbp, %rbp
+    mrmovq 64(%rdi), %r8
+    rmmovq %rbp, 48(%rsi)
+    jle l7
+    iaddq $1, %rax
+l7:
+    andq %rbx, %rbx
+    rmmovq %r8, 64(%rsi)
+    jle l8
+    iaddq $1, %rax
+l8:
+    andq %r8, %r8
+    rmmovq %rbx, 56(%rsi)
+    jle Npos
+    iaddq $1, %rax
+
+Npos:
+	iaddq $72, %rdi		# src++
+	iaddq $72, %rsi		# dst++
+	iaddq $-9, %rdx		# len > 3?
+	jge Loop			# if so, goto Loop:
+
+Remain:
+    iaddq $9, %rdx
+    jg R1
+    ret
+
+R1:
+	mrmovq (%rdi), %r10
+	mrmovq 8(%rdi), %r11
+	rmmovq %r10, (%rsi)
+	andq %r10, %r10
+	jle Npos2
+	iaddq $1, %rax
+Npos2:
+	iaddq $-1, %rdx
+	jne R2
+	ret
+R2:
+	mrmovq 16(%rdi), %r10
+	rmmovq %r11, 8(%rsi)
+	andq %r11, %r11
+	jle Npos3
+	iaddq $1, %rax
+Npos3:
+	iaddq $-1, %rdx
+	jne R3
+	ret
+R3:
+	mrmovq 24(%rdi), %r11
+	rmmovq %r10, 16(%rsi)
+	andq %r10, %r10
+	jle Npos4
+	iaddq $1, %rax
+Npos4:
+	iaddq $-1, %rdx
+	jne R4
+	ret
+R4:
+	mrmovq 32(%rdi), %r10
+	rmmovq %r11, 24(%rsi)
+	andq %r11, %r11
+	jle Npos5
+	iaddq $1, %rax
+Npos5:
+	iaddq $-1, %rdx
+	jne R5
+	ret
+R5:
+	mrmovq 40(%rdi), %r11
+	rmmovq %r10, 32(%rsi)
+	andq %r10, %r10
+	jle Npos6
+	iaddq $1, %rax
+Npos6:
+	iaddq $-1, %rdx
+	jne R6
+	ret
+R6:
+	mrmovq 48(%rdi), %r10
+	rmmovq %r11, 40(%rsi)
+	andq %r11, %r11
+	jle Npos7
+	iaddq $1, %rax
+Npos7:
+	iaddq $-1, %rdx
+	jne R7
+	ret
+R7:
+    mrmovq 56(%rdi), %r11
+	rmmovq %r10, 48(%rsi)
+	andq %r10, %r10
+	jle Npos8
+	iaddq $1, %rax
+Npos8:
+	iaddq $-1, %rdx
+	jne R8
+	ret
+R8:
+	rmmovq %r11, 56(%rsi)
+	andq %r11, %r11
+	jle Done
+	iaddq $1, %rax
+
+##################################################################
+# Do not modify the following section of code
+# Function epilogue.
+Done:
+	ret
+##################################################################
+# Keep the following label at the end of your function
+End:
+#/* $end ncopy-ys */

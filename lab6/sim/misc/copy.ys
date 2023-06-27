@@ -1,0 +1,50 @@
+# 郭俊甫 521021910522
+
+    .pos 0
+    irmovq stack, %rsp
+    call main
+    halt
+
+src:
+    .quad 0x00a
+    .quad 0x0b0
+    .quad 0xc00
+
+dest:
+    .quad 0x111
+    .quad 0x222
+    .quad 0x333
+
+main:
+    irmovq src, %rdi
+    irmovq dest, %rsi
+    irmovq $3, %rdx
+    pushq %r10
+    call Copy
+    popq %r10
+    ret
+
+Copy:
+    pushq %rbx
+    irmovq $0, %rax
+
+Loop:
+    andq %rdx, %rdx
+    jle End
+    mrmovq (%rdi), %rbx
+    irmovq $0x8, %r10
+    addq %r10, %rdi
+    rmmovq %rbx, (%rsi)
+    irmovq $0x8, %r10
+    addq %r10, %rsi
+    xorq %rbx, %rax
+    irmovq $0x1, %r10
+    subq %r10, %rdx
+    jmp Loop
+
+End:
+    popq %rbx
+    ret
+
+    .pos 0x200
+stack:

@@ -1,0 +1,4 @@
+ps -u |tail -n+2|sort -k 11
+ls /etc/*.conf -lhSr |head -n 6
+echo "echo hello world!" >> echo.sh|chmod u+x echo.sh|./echo.sh
+
